@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -46,7 +48,9 @@ class HomePage extends StatelessWidget {
           },
         ),
       ),
-      body: MoviesInformation(),
+      body: const SingleChildScrollView(
+        child: MoviesInformation(),
+      ),
     );
   }
 }
@@ -62,27 +66,94 @@ class _MoviesInformationState extends State<MoviesInformation> {
   final Stream<QuerySnapshot> _moviesStream =
       FirebaseFirestore.instance.collection('Movies').snapshots();
 
+  void addLike(String docID, int likes) {
+    var newLikes = likes + 1;
+    try {
+      FirebaseFirestore.instance.collection('Movies').doc(docID).update({
+        'likes': newLikes,
+      }).then((value) => print('données à jour'));
+    } catch (e) {
+      print(e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: _moviesStream,
       builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
         if (snapshot.hasError) {
-          return Text('Something went wrong');
+          return const Text('Something went wrong');
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Text("Loading");
+          return const Text("Loading");
         }
 
         return ListView(
+          scrollDirection: Axis.vertical,
+          shrinkWrap: true,
           children: snapshot.data!.docs.map((DocumentSnapshot document) {
-            Map<String, dynamic> data =
+            Map<String, dynamic> movie =
                 document.data()! as Map<String, dynamic>;
-            return ListTile(
-              trailing: Image.network(data['poster']),
-              title: Text(data['name']),
-              subtitle: Text(data['poster']),
+            return Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: Image.network(
+                      movie['poster'],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          movie['name'],
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Text('Année de production'),
+                        Text(movie['year'].toString()),
+                        Row(
+                          children: [
+                            for (final categorie in movie['categories'])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 5),
+                                child: Chip(
+                                  backgroundColor: Colors.lightBlue,
+                                  label: Text(categorie),
+                                ),
+                              ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              iconSize: 20,
+                              icon: const Icon(Icons.favorite),
+                              onPressed: () {
+                                addLike(document.id, movie['likes']);
+                              },
+                            ),
+                            const SizedBox(
+                              width: 10,
+                            ),
+                            Text(movie['likes'].toString()),
+                          ],
+                        )
+                      ],
+                    ),
+                  )
+                ],
+              ),
             );
           }).toList(),
         );
